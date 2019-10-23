@@ -14,7 +14,6 @@ void Gps::init()
 
 void Gps::encode()
 {       
-    int data;
     int previousMillis = millis();
 
     while((previousMillis + 1000) > millis())
@@ -23,10 +22,8 @@ void Gps::encode()
         {
             char data = GPSSerial.read();
             tGps.encode(data);
-            //Serial.print(data);
         }
     }
-     //Serial.println("");
 }
 
 void Gps::buildPacket(uint8_t txBuffer[9])
