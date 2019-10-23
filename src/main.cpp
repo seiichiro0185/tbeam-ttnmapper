@@ -208,8 +208,10 @@ void setup() {
   // Start UI-Thread on Second Core
   xTaskCreatePinnedToCore(uiThread, "uiThread", 10000, NULL, 1, &uiThreadTask, 0); 
 
-  // LoRa Init
+  // Builtin LED will be used to indicate LoRa Activity
   pinMode(BUILTIN_LED, OUTPUT);
+
+  // LoRa Init
   os_init();
   LMIC_reset();
   LMIC_setSession (0x1, DEVADDR, NWKSKEY, APPSKEY);
@@ -231,6 +233,9 @@ void setup() {
   LMIC_setAdrMode(0);
   // Set data rate and transmit power for uplink (note: txpow seems to be ignored by the library)
   LMIC_setDrTxpow(DR_SF7,14); 
+  // Don't do Link Checks
+  LMIC_setLinkCheckMode(0);
+
   do_send(&sendjob);
   digitalWrite(BUILTIN_LED, LOW);
 }
