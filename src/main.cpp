@@ -25,7 +25,7 @@ uint8_t sendInterval[] = {20, 30, 40, 10};
 uint8_t sendIntervalKey = 0;
 
 // TinyGPS Wrapper
-gps gps;
+Gps gps;
 
 // Global Status Flags
 float vbat;

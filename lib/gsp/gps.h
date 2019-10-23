@@ -7,7 +7,7 @@
 #define GPS_TX 12
 #define GPS_RX 15
 
-class gps
+class Gps
 {
     public:
         void init();
