@@ -11,7 +11,8 @@
 
 // Extra Buttons
 #define BUTTON_L 13
-#define BUTTON_R 2
+// #define BUTTON_R 2
+#define BUTTON_R 39 //integrated
 // Integrated Button
 #define BUTTON_B 39
 // Pin to read Battery Voltage
@@ -162,7 +163,13 @@ void uiThread (void * parameter) {
     } else {
       u8x8.home();
     }
+
     if (hasFix) {
+      if(LoraStatus == "QUEUED"){
+        u8x8.setInverseFont(1);
+      }else{
+        u8x8.setInverseFont(0);
+      }
       u8x8.print("HDOP:  ");
       u8x8.println(dispBuffer[4] / 10.0);
       u8x8.print("Sat:   ");
