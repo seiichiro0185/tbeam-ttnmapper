@@ -1,0 +1,6 @@
+// this file has to be renamed to config.h before compile
+
+// The keys you find in your Application -> Device setup in your TTN Console
+#define DEVADDR ""
+#define NWKSKEY ""
+#define APPSKEY ""
