@@ -1,6 +1,8 @@
 // this file has to be renamed to config.h before compile
 
 // The keys you find in your Application -> Device setup in your TTN Console
-#define DEVADDR ""
-#define NWKSKEY ""
-#define APPSKEY ""
+// Fill these with the values from https://console.thethingsnetwork.org
+static PROGMEM u1_t NWKSKEY[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; // LoRaWAN Network Session Key, MSB
+static PROGMEM u1_t APPSKEY[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; // LoRaWAN App Session Key, MSB
+static const u4_t DEVADDR = 0x00000000; // LoRaWAN Device Address (HEX)
+
