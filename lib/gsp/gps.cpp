@@ -4,9 +4,9 @@ HardwareSerial GPSSerial(1);
 
 byte CFG_RST[12] = {0xb5, 0x62, 0x06, 0x04, 0x04, 0x00, 0x00, 0x00, 0x01,0x00, 0x0F, 0x66};
 
-void Gps::init()
+void Gps::init(byte TX, byte RX)
 {
-  GPSSerial.begin(9600, SERIAL_8N1, GPS_TX, GPS_RX);
+  GPSSerial.begin(9600, SERIAL_8N1, TX, RX);
   GPSSerial.setTimeout(2);
   GPSSerial.write(CFG_RST, sizeof(CFG_RST)); // Soft Reset GPS on Start
   satsInView.begin(tGps, "GPGSV", 3); // NMEA Sentence GPGSV, Element 3 (Sat in View)

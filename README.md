@@ -15,7 +15,9 @@ The Code needs the following Libraries (they are configured as dependencies in p
 - TinyGPSPlus
 - U8g2
 
-Please Insert your Network / Application Keys and Device ID from the TTN-Console into include/config.h before flashing, it will not work without.
+Please Insert your Network / Application Keys and Device ID from the TTN-Console into include/config.h before flashing, it will not work without. An example of config.h you find in /include/config.sample
+
+Also in config.h you can activate a quickfix if you have Board Revision 1.1. Button and GPS Serial is different on this board. GPS won't work if the serial pins are wrong.
 
 ## License
 

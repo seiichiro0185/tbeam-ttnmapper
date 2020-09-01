@@ -11,10 +11,19 @@
 
 // Extra Buttons
 #define BUTTON_L 13
-// #define BUTTON_R 2
-#define BUTTON_R 39 //integrated
-// Integrated Button
-#define BUTTON_B 39
+
+#ifndef V1_1
+  // #define BUTTON_R 2
+  #define BUTTON_R 39 //integrated
+  // Integrated Button
+  #define BUTTON_B 39
+#else
+  // #define BUTTON_R 2
+  #define BUTTON_R 38 //integrated
+  // Integrated Button
+  #define BUTTON_B 38
+#endif
+
 // Pin to read Battery Voltage
 #define BAT_PIN  35
 
@@ -125,7 +134,7 @@ void do_send(osjob_t* j) {
     {
       // Prepare upstream data transmission at the next possible time.
       gps.buildPacket(loraBuffer);
-      LMIC_setTxData2(1, loraBuffer, sizeof(loraBuffer), 0);
+      LMIC_setTxData2(3, loraBuffer, sizeof(loraBuffer), 0);
       digitalWrite(BUILTIN_LED, HIGH);
       LoraStatus = "QUEUED";
     }
@@ -210,7 +219,11 @@ void setup() {
   btStop();
 
   // Init GPS
-  gps.init();
+  #ifndef V1_1
+    gps.init(GPS_TX, GPS_RX);
+  #else
+    gps.init(34, 12);
+  #endif
 
   // Start UI-Thread on Second Core
   xTaskCreatePinnedToCore(uiThread, "uiThread", 10000, NULL, 1, &uiThreadTask, 0); 
