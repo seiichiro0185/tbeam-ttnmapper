@@ -17,15 +17,32 @@
   #define BUTTON_R 39 //integrated
   // Integrated Button
   #define BUTTON_B 39
+  // Pin to read Battery Voltage
+  #define BAT_PIN  35
+
 #else
   // #define BUTTON_R 2
   #define BUTTON_R 38 //integrated
   // Integrated Button
   #define BUTTON_B 38
+
+  #include "axp20x.h"
+  #ifndef AXP192_SLAVE_ADDRESS
+    #define AXP192_SLAVE_ADDRESS    0x34
+  #endif
+
+  #define PMU_IRQ             35
+
+  AXP20X_Class axp;
+  bool pmu_irq = false;
+  bool axp192_found = true;
+  String baChStatus = "No charging";
+
 #endif
 
-// Pin to read Battery Voltage
-#define BAT_PIN  35
+#ifndef TTN_PORT
+  #define TTN_PORT 1
+#endif
 
 // Thread Handle for UI
 TaskHandle_t uiThreadTask;
@@ -33,6 +50,7 @@ TaskHandle_t uiThreadTask;
 // Delay between Lora Send
 uint8_t sendInterval[] = {20, 30, 40, 10};
 uint8_t sendIntervalKey = 0;
+uint8_t packets_send = 0;
 
 // TinyGPS Wrapper
 Gps gps;
@@ -93,6 +111,7 @@ void onEvent (ev_t ev) {
       LoraStatus = "REJOIN_FA";
       break;
     case EV_TXCOMPLETE:
+      packets_send ++;
       LoraStatus = "TXCOMPL";
       digitalWrite(BUILTIN_LED, LOW);  
       if (LMIC.txrxFlags & TXRX_ACK) {
@@ -130,16 +149,17 @@ void do_send(osjob_t* j) {
   }
   else
   { 
-    if (gps.checkGpsFix())
+    if (hasFix)
     {
       // Prepare upstream data transmission at the next possible time.
       gps.buildPacket(loraBuffer);
-      LMIC_setTxData2(3, loraBuffer, sizeof(loraBuffer), 0);
+      LMIC_setTxData2(TTN_PORT, loraBuffer, sizeof(loraBuffer), 0);
       digitalWrite(BUILTIN_LED, HIGH);
       LoraStatus = "QUEUED";
     }
     else
     {
+      LoraStatus = "NO FIX";
       os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(3), do_send);
     }
   }
@@ -157,13 +177,92 @@ void uiThread (void * parameter) {
 
   // Initialize Display
   U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(/* reset=*/ U8X8_PIN_NONE);
-
-  u8x8.begin();
+  u8x8.begin( );
   u8x8.setPowerSave(0);
+
+#ifdef V1_1
+
+  /* Init AXP192 to get access to Battery management.
+     We have to do that here because we have to use the Wire instance which
+     is already in use by OLED and not accessible outside of this Thread.
+     There are a few flags below which I have commented out. I don't know
+     whether these are relly needed.
+     The code is almost from https://github.com/Xinyuan-LilyGO/LilyGO-T-Beam/blob/master/src/LilyGO-T-Beam.ino
+     reduced to a minimum.
+  */
+  axp.begin(Wire, AXP192_SLAVE_ADDRESS);
+
+  // if (!axp.begin(Wire, AXP192_SLAVE_ADDRESS)) {
+  //     Serial.println("AXP192 Begin PASS");
+  // } else {
+  //     Serial.println("AXP192 Begin FAIL");
+  // }
+
+  // Serial.printf("DCDC1: %s\n", axp.isDCDC1Enable() ? "ENABLE" : "DISABLE");
+  // Serial.printf("DCDC2: %s\n", axp.isDCDC2Enable() ? "ENABLE" : "DISABLE");
+  // Serial.printf("LDO2: %s\n", axp.isLDO2Enable() ? "ENABLE" : "DISABLE");
+  // Serial.printf("LDO3: %s\n", axp.isLDO3Enable() ? "ENABLE" : "DISABLE");
+  // Serial.printf("DCDC3: %s\n", axp.isDCDC3Enable() ? "ENABLE" : "DISABLE");
+  // Serial.printf("Exten: %s\n", axp.isExtenEnable() ? "ENABLE" : "DISABLE");
+
+  // Serial.println("----------------------------------------");
+
+  // axp.setPowerOutPut(AXP192_LDO2, AXP202_ON);
+  // axp.setPowerOutPut(AXP192_LDO3, AXP202_ON);
+  // axp.setPowerOutPut(AXP192_DCDC2, AXP202_ON);
+  // axp.setPowerOutPut(AXP192_EXTEN, AXP202_ON);
+  // axp.setPowerOutPut(AXP192_DCDC1, AXP202_ON);
+  // axp.setDCDC1Voltage(3300);  //esp32 core VDD    3v3
+  // axp.setLDO2Voltage(3300);   //LORA VDD set 3v3
+  // axp.setLDO3Voltage(3300);   //GPS VDD      3v3
+
+  // Serial.printf("DCDC1: %s\n", axp.isDCDC1Enable() ? "ENABLE" : "DISABLE");
+  // Serial.printf("DCDC2: %s\n", axp.isDCDC2Enable() ? "ENABLE" : "DISABLE");
+  // Serial.printf("LDO2: %s\n", axp.isLDO2Enable() ? "ENABLE" : "DISABLE");
+  // Serial.printf("LDO3: %s\n", axp.isLDO3Enable() ? "ENABLE" : "DISABLE");
+  // Serial.printf("DCDC3: %s\n", axp.isDCDC3Enable() ? "ENABLE" : "DISABLE");
+  // Serial.printf("Exten: %s\n", axp.isExtenEnable() ? "ENABLE" : "DISABLE");
+
+  // setting the interrupt to handle state changes on AXP
+  pinMode(PMU_IRQ, INPUT_PULLUP);
+  attachInterrupt(PMU_IRQ, [] {
+    pmu_irq = true;
+  }, FALLING);
+
+  axp.adc1Enable(AXP202_BATT_CUR_ADC1, 1);
+  axp.enableIRQ(AXP202_VBUS_REMOVED_IRQ | AXP202_VBUS_CONNECT_IRQ | AXP202_BATT_REMOVED_IRQ | AXP202_BATT_CONNECT_IRQ, 1);
+  axp.clearIRQ();
+
+  // set initial charge state
+  if (axp.isChargeing()) {
+      baChStatus = "Charging";
+  }
+#endif
 
   // Endless Loop for Display Thread
   bool lastState = hasFix;
   for(;;) {
+
+#ifdef V1_1
+    // interrupt is triggered if charge state changes (cable plugged/ unplugged)
+    if (axp192_found && pmu_irq) {
+      pmu_irq = false;
+      axp.readIRQ();
+      if (axp.isChargingIRQ()) {
+          baChStatus = "Charging";
+      } else {
+          baChStatus = "No Charging";
+      }
+      if (axp.isVbusRemoveIRQ()) {
+          baChStatus = "No Charging";
+      }
+      digitalWrite(2, !digitalRead(2));
+      axp.clearIRQ();
+    }
+    // set Bat Voltage for legacy code
+    vbat = axp.getBattVoltage() / 1000.0;
+#endif
+
     b1->update();
     u8x8.setFont(u8x8_font_amstrad_cpc_extended_r);
     if (lastState != hasFix) {
@@ -186,44 +285,68 @@ void uiThread (void * parameter) {
       u8x8.print("/");
       u8x8.println(dispBuffer[0]);
       u8x8.print("Int:   ");
-      u8x8.println(sendInterval[sendIntervalKey]);
+      u8x8.print(sendInterval[sendIntervalKey]);
+      u8x8.print("  ");
+      u8x8.print(packets_send);
+      u8x8.println("x");
       u8x8.print("Speed: ");
-      u8x8.println(dispBuffer[1]);
+      u8x8.print(dispBuffer[1]);
+      u8x8.println("km/h");
       u8x8.print("Alt:   ");
-      u8x8.println(dispBuffer[2]);
+      u8x8.print(dispBuffer[3]);
+      u8x8.println("m");
       u8x8.print("Lora:  ");
       u8x8.println(LoraStatus);
       u8x8.print("Bat:   ");
-      u8x8.println(vbat, 2);
+      u8x8.print(vbat, 2);
+      u8x8.println("V");
+#ifdef V1_1
+      // Charge status
+      u8x8.println(baChStatus);
+#endif
     } else {
+      u8x8.setInverseFont(0);
       u8x8.println("NO FIX");
       u8x8.print("Sat:   ");
       u8x8.print(dispBuffer[5]);
       u8x8.print("/");
       u8x8.println(dispBuffer[0]);
       u8x8.print("Int:   ");
-      u8x8.println(sendInterval[sendIntervalKey]);
+      u8x8.print(sendInterval[sendIntervalKey]);
+      u8x8.print("  ");
+      u8x8.print(packets_send);
+      u8x8.println("x");
+      u8x8.println("");
+      u8x8.println("");
+      u8x8.println("");
       u8x8.print("Bat:   ");
-      u8x8.println(vbat, 2);
+      u8x8.print(vbat, 2);
+      u8x8.println("V");
+#ifdef V1_1
+      // Charge status
+      u8x8.println(baChStatus);
+#endif
     }
     delay(50);
   }
 }
 
 void setup() {
+
+  Serial.begin(115200);
+
   // Setup Hardware
+#ifndef V1_1
   pinMode(BAT_PIN, INPUT);
-  
+  // Init GPS
+  gps.init(GPS_TX, GPS_RX);
+#else
+  gps.init(34, 12);
+#endif
+
   // Wifi and BT Off
   WiFi.mode(WIFI_OFF);
   btStop();
-
-  // Init GPS
-  #ifndef V1_1
-    gps.init(GPS_TX, GPS_RX);
-  #else
-    gps.init(34, 12);
-  #endif
 
   // Start UI-Thread on Second Core
   xTaskCreatePinnedToCore(uiThread, "uiThread", 10000, NULL, 1, &uiThreadTask, 0); 
@@ -261,7 +384,11 @@ void setup() {
 }
 
 void loop() {
+
+//Bord Rev1.1 cannot measure BAT this way. Measure is done in uiThread
+#ifndef V1_1
   vbat = (float)(analogRead(BAT_PIN)) / 4095*2*3.3*1.1;
+#endif
   
   hasFix = gps.checkGpsFix();
   gps.gdisplay(dispBuffer);

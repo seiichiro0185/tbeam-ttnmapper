@@ -4,6 +4,9 @@
 // Bord Revision uncomment below if you have Board revision 1.1
 //#define V1_1
 
+// Port is used in TTN decoder
+#define TTN_PORT 1
+
 // The keys you find in your Application -> Device setup in your TTN Console
 // Fill these with the values from https://console.thethingsnetwork.org
 static PROGMEM u1_t NWKSKEY[16] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }; // LoRaWAN Network Session Key, MSB
