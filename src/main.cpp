@@ -26,6 +26,7 @@
   // Integrated Button
   #define BUTTON_B 38
 
+  // Battery management
   #include "axp20x.h"
   #ifndef AXP192_SLAVE_ADDRESS
     #define AXP192_SLAVE_ADDRESS    0x34
@@ -40,9 +41,13 @@
 
 #endif
 
+// if not set in config.h defaults to 1
 #ifndef TTN_PORT
   #define TTN_PORT 1
 #endif
+
+// keeps the millis since last "QUEUED" state
+uint32_t lastsendjob = 0;
 
 // Thread Handle for UI
 TaskHandle_t uiThreadTask;
@@ -50,7 +55,15 @@ TaskHandle_t uiThreadTask;
 // Delay between Lora Send
 uint8_t sendInterval[] = {20, 30, 40, 10};
 uint8_t sendIntervalKey = 0;
-uint8_t packets_send = 0;
+
+// number of packets send to TTN
+uint16_t packets_send = 0;
+
+// last packet number !doesn't survive a reset!
+u4_t lmicSeqNumber = 0;
+
+// flag to clear display only if was inverse before
+bool display_is_inverse = false;
 
 // TinyGPS Wrapper
 Gps gps;
@@ -81,6 +94,10 @@ const lmic_pinmap lmic_pins = {
 
 // Lora Event Handling
 void onEvent (ev_t ev) {
+
+  // last packet count
+  lmicSeqNumber = LMIC.seqnoUp;
+
   switch (ev) {
     case EV_SCAN_TIMEOUT:
       LoraStatus = "SCANTIMEO";
@@ -156,6 +173,8 @@ void do_send(osjob_t* j) {
       LMIC_setTxData2(TTN_PORT, loraBuffer, sizeof(loraBuffer), 0);
       digitalWrite(BUILTIN_LED, HIGH);
       LoraStatus = "QUEUED";
+      //keep time for timeout
+      lastsendjob = millis();
     }
     else
     {
@@ -264,7 +283,9 @@ void uiThread (void * parameter) {
 #endif
 
     b1->update();
-    u8x8.setFont(u8x8_font_amstrad_cpc_extended_r);
+    //u8x8.setFont(u8x8_font_amstrad_cpc_extended_r);
+    u8x8.setFont(u8x8_font_victoriabold8_r); // <- this font is better readable IMHO
+
     if (lastState != hasFix) {
       lastState = hasFix;
       u8x8.clear();
@@ -275,8 +296,14 @@ void uiThread (void * parameter) {
     if (hasFix) {
       if(LoraStatus == "QUEUED"){
         u8x8.setInverseFont(1);
+        display_is_inverse = true;
       }else{
         u8x8.setInverseFont(0);
+        // this is to avoid white spaces on display
+        if(display_is_inverse){
+          u8x8.clear();
+          display_is_inverse = false;
+        }
       }
       u8x8.print("HDOP:  ");
       u8x8.println(dispBuffer[4] / 10.0);
@@ -331,6 +358,36 @@ void uiThread (void * parameter) {
   }
 }
 
+void init_LMIC(){
+  LMIC_reset();
+  LMIC_setSession (0x1, DEVADDR, NWKSKEY, APPSKEY);
+
+  // Setup EU Channels
+  LMIC_setupChannel(0, 868100000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
+  LMIC_setupChannel(1, 868300000, DR_RANGE_MAP(DR_SF12, DR_SF7B), BAND_CENTI);      // g-band
+  LMIC_setupChannel(2, 868500000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
+  LMIC_setupChannel(3, 867100000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
+  LMIC_setupChannel(4, 867300000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
+  LMIC_setupChannel(5, 867500000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
+  LMIC_setupChannel(6, 867700000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
+  LMIC_setupChannel(7, 867900000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
+  LMIC_setupChannel(8, 868800000, DR_RANGE_MAP(DR_FSK,  DR_FSK),  BAND_MILLI);      // g2-band
+  
+  // TTN uses SF9 for its RX2 window.
+  LMIC.dn2Dr = DR_SF9;
+  // Disable Data Rate Adaptation, for Mapping we want static SF7
+  LMIC_setAdrMode(0);
+  // Set data rate and transmit power for uplink (note: txpow seems to be ignored by the library)
+  LMIC_setDrTxpow(DR_SF7,14); 
+  // Don't do Link Checks
+  LMIC_setLinkCheckMode(0);
+
+  // set last packet count after re-init
+  LMIC.seqnoUp = lmicSeqNumber;
+
+  do_send(&sendjob);
+}
+
 void setup() {
 
   Serial.begin(115200);
@@ -356,30 +413,8 @@ void setup() {
 
   // LoRa Init
   os_init();
-  LMIC_reset();
-  LMIC_setSession (0x1, DEVADDR, NWKSKEY, APPSKEY);
+  init_LMIC();
 
-  // Setup EU Channels
-  LMIC_setupChannel(0, 868100000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
-  LMIC_setupChannel(1, 868300000, DR_RANGE_MAP(DR_SF12, DR_SF7B), BAND_CENTI);      // g-band
-  LMIC_setupChannel(2, 868500000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
-  LMIC_setupChannel(3, 867100000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
-  LMIC_setupChannel(4, 867300000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
-  LMIC_setupChannel(5, 867500000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
-  LMIC_setupChannel(6, 867700000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
-  LMIC_setupChannel(7, 867900000, DR_RANGE_MAP(DR_SF12, DR_SF7),  BAND_CENTI);      // g-band
-  LMIC_setupChannel(8, 868800000, DR_RANGE_MAP(DR_FSK,  DR_FSK),  BAND_MILLI);      // g2-band
-  
-  // TTN uses SF9 for its RX2 window.
-  LMIC.dn2Dr = DR_SF9;
-  // Disable Data Rate Adaptation, for Mapping we want static SF7
-  LMIC_setAdrMode(0);
-  // Set data rate and transmit power for uplink (note: txpow seems to be ignored by the library)
-  LMIC_setDrTxpow(DR_SF7,14); 
-  // Don't do Link Checks
-  LMIC_setLinkCheckMode(0);
-
-  do_send(&sendjob);
   digitalWrite(BUILTIN_LED, LOW);
 }
 
@@ -389,7 +424,14 @@ void loop() {
 #ifndef V1_1
   vbat = (float)(analogRead(BAT_PIN)) / 4095*2*3.3*1.1;
 #endif
-  
+
+  // check whether LMIC hangs and re-init
+  if(LoraStatus == "QUEUED" && lastsendjob > 0 && (millis() - lastsendjob > 10000) ){
+    init_LMIC();
+    packets_send = 0;
+    LoraStatus = "LMIC_RST";
+  }
+
   hasFix = gps.checkGpsFix();
   gps.gdisplay(dispBuffer);
   os_runloop_once();
