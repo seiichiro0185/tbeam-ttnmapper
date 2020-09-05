@@ -169,12 +169,20 @@ void do_send(osjob_t* j) {
     if (hasFix)
     {
       // Prepare upstream data transmission at the next possible time.
-      gps.buildPacket(loraBuffer);
-      LMIC_setTxData2(TTN_PORT, loraBuffer, sizeof(loraBuffer), 0);
-      digitalWrite(BUILTIN_LED, HIGH);
-      LoraStatus = "QUEUED";
-      //keep time for timeout
-      lastsendjob = millis();
+      if(gps.buildPacket(loraBuffer)){
+
+        LMIC_setTxData2(TTN_PORT, loraBuffer, sizeof(loraBuffer), 0);
+        digitalWrite(BUILTIN_LED, HIGH);
+        LoraStatus = "QUEUED";
+
+        //keep time for timeout
+        lastsendjob = millis();
+        
+      } else {
+        LoraStatus = "GPS FAIL";
+        os_setTimedCallback(&sendjob, os_getTime() + sec2osticks(3), do_send);
+      }
+      
     }
     else
     {
@@ -385,6 +393,7 @@ void init_LMIC(){
   // set last packet count after re-init
   LMIC.seqnoUp = lmicSeqNumber;
 
+  delay(500);
   do_send(&sendjob);
 }
 

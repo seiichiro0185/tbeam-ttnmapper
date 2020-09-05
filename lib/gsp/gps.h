@@ -12,7 +12,7 @@ class Gps
     public:
         void init(byte TX, byte RX);
         bool checkGpsFix();
-        void buildPacket(uint8_t txBuffer[9]);
+        bool buildPacket(uint8_t txBuffer[9]);
         void gdisplay(uint16_t txBuffer2[5]);
         void encode();
 
