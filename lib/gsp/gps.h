@@ -4,13 +4,10 @@
 #include <TinyGPS++.h>
 #include <HardwareSerial.h>
 
-#define GPS_TX 12
-#define GPS_RX 15
-
 class Gps
 {
     public:
-        void init(byte TX, byte RX);
+        void init();
         bool checkGpsFix();
         bool buildPacket(uint8_t txBuffer[9]);
         void gdisplay(uint16_t txBuffer2[5]);

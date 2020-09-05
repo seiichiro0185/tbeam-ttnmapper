@@ -9,23 +9,7 @@
 // EDIT AND INSERT YOUR ABP KEYS HERE!
 #include <config.h>
 
-// Extra Buttons
-#define BUTTON_L 13
-
-#ifndef V1_1
-  // #define BUTTON_R 2
-  #define BUTTON_R 39 //integrated
-  // Integrated Button
-  #define BUTTON_B 39
-  // Pin to read Battery Voltage
-  #define BAT_PIN  35
-
-#else
-  // #define BUTTON_R 2
-  #define BUTTON_R 38 //integrated
-  // Integrated Button
-  #define BUTTON_B 38
-
+#ifdef V1_1
   // Battery management
   #include "axp20x.h"
   #ifndef AXP192_SLAVE_ADDRESS
@@ -38,7 +22,6 @@
   bool pmu_irq = false;
   bool axp192_found = true;
   String baChStatus = "No charging";
-
 #endif
 
 // if not set in config.h defaults to 1
@@ -402,13 +385,12 @@ void setup() {
   Serial.begin(115200);
 
   // Setup Hardware
-#ifndef V1_1
+#ifdef V1_0
   pinMode(BAT_PIN, INPUT);
-  // Init GPS
-  gps.init(GPS_TX, GPS_RX);
-#else
-  gps.init(34, 12);
 #endif
+
+  // Init GPS
+  gps.init();
 
   // Wifi and BT Off
   WiFi.mode(WIFI_OFF);
@@ -430,7 +412,7 @@ void setup() {
 void loop() {
 
 //Bord Rev1.1 cannot measure BAT this way. Measure is done in uiThread
-#ifndef V1_1
+#ifdef V1_0
   vbat = (float)(analogRead(BAT_PIN)) / 4095*2*3.3*1.1;
 #endif
 

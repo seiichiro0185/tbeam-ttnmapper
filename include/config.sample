@@ -1,9 +1,5 @@
 // this file has to be renamed to config.h before compile
 
-
-// Bord Revision uncomment below if you have Board revision 1.1
-//#define V1_1
-
 // Port is used in TTN decoder
 #define TTN_PORT 1
 
