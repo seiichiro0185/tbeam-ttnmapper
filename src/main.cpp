@@ -69,10 +69,12 @@ void do_send(osjob_t* j); // declare for onEvent
 
 // Setup Lora Pins
 const lmic_pinmap lmic_pins = {
-  .nss = 18,
+  //.nss = 18,
+  .nss = LORA_CS,
   .rxtx = LMIC_UNUSED_PIN,
   .rst = LMIC_UNUSED_PIN, // was "14,"
-  .dio = {26, 33, 32},
+  //.dio = {26, 33, 32},
+  .dio = {LORA_DIO0, LORA_DIO1, LORA_DIO2},
 };
 
 // Lora Event Handling
@@ -186,7 +188,15 @@ void uiThread (void * parameter) {
   });
 
   // Initialize Display
-  U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(/* reset=*/ U8X8_PIN_NONE);
+#if defined V1_0 || defined V1_1
+  U8X8_SSD1306_128X64_NONAME_HW_I2C u8x8(/* reset=*/ U8X8_PIN_NONE, OLED_SCL, OLED_SDA);
+#endif
+
+#ifdef HELTEC_WS
+  //todo init for Onboard 0.49-inch 64*32
+  U8X8_SSD1306_64X32_1F_SW_I2C u8x8(OLED_SCL, OLED_SDA, OLED_RST);
+#endif
+
   u8x8.begin( );
   u8x8.setPowerSave(0);
 
@@ -285,6 +295,8 @@ void uiThread (void * parameter) {
     }
 
     if (hasFix) {
+#if defined V1_0 || defined V1_1
+
       if(LoraStatus == "QUEUED"){
         u8x8.setInverseFont(1);
         display_is_inverse = true;
@@ -296,6 +308,7 @@ void uiThread (void * parameter) {
           display_is_inverse = false;
         }
       }
+
       u8x8.print("HDOP:  ");
       u8x8.println(dispBuffer[4] / 10.0);
       u8x8.print("Sat:   ");
@@ -318,11 +331,28 @@ void uiThread (void * parameter) {
       u8x8.print("Bat:   ");
       u8x8.print(vbat, 2);
       u8x8.println("V");
-#ifdef V1_1
+  #ifdef V1_1
       // Charge status
       u8x8.println(baChStatus);
+  #endif
 #endif
+
+#ifdef HELTEC_WS
+      u8x8.setInverseFont(0);
+      u8x8.print("H: ");
+      u8x8.println(dispBuffer[4] / 10.0);
+      u8x8.print("S: ");
+      u8x8.print(dispBuffer[5]);
+      u8x8.print("/");
+      u8x8.println(dispBuffer[0]);
+      u8x8.print("X: ");
+      u8x8.println(packets_send);
+      u8x8.println(LoraStatus);
+#endif
+
     } else {
+
+#if defined V1_0 || defined V1_1
       u8x8.setInverseFont(0);
       u8x8.println("NO FIX");
       u8x8.print("Sat:   ");
@@ -340,10 +370,24 @@ void uiThread (void * parameter) {
       u8x8.print("Bat:   ");
       u8x8.print(vbat, 2);
       u8x8.println("V");
-#ifdef V1_1
+  #ifdef V1_1
       // Charge status
       u8x8.println(baChStatus);
+  #endif
 #endif
+
+#ifdef HELTEC_WS
+      u8x8.setInverseFont(0);
+      u8x8.println("NO FIX");
+      u8x8.print("S: ");
+      u8x8.print(dispBuffer[5]);
+      u8x8.print("/");
+      u8x8.println(dispBuffer[0]);
+      u8x8.print("X: ");
+      u8x8.println(packets_send);
+      u8x8.println(LoraStatus);
+#endif
+
     }
     delay(50);
   }

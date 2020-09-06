@@ -1,6 +1,6 @@
 ## TTGO T-Beam TTNMapper Sketch
 
-A Firmware for the TTGO T-Beam to use it as a standalone TTNMapper (-> https://ttnmapper.org)
+A Firmware for the TTGO T-Beam and Heltec Wireless Stick to use it as a standalone TTNMapper (-> https://ttnmapper.org)
 Based on the Ardino Sketch at https://github.com/Bjoerns-TB/Lora-TTNMapper-T-Beam
 
 - Converted to PlatformIO
@@ -17,7 +17,9 @@ The Code needs the following Libraries (they are configured as dependencies in p
 
 Please Insert your Network / Application Keys and Device ID from the TTN-Console into include/config.h before flashing, it will not work without. An example of config.h you find in /include/config.sample
 
-Also in config.h you can activate a quickfix if you have Board Revision 1.1. Button and GPS Serial is different on this board. GPS won't work if the serial pins are wrong.
+The platformio.ini configures the Pins for all 3 boards depending on the ENV of your choice
+
+For Heltec Wireless Stick (no integrated GPS) you have to solder the GPS to Pins RX 23 and TX 17. The 64x32 OLED is very limited to visualize things. The onboard LED is on as long a TTN packet is queued
 
 ## License
 
