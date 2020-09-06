@@ -2,7 +2,6 @@
 #include <WiFi.h>
 #include <lmic.h>
 #include <hal/hal.h>
-#include <SimpleButton.h>
 #include <U8x8lib.h>
 #include <gps.h>
 
@@ -47,6 +46,10 @@ u4_t lmicSeqNumber = 0;
 
 // flag to clear display only if was inverse before
 bool display_is_inverse = false;
+
+// time since las buttonpress
+uint32_t lastkeypress = 0;
+bool setlock = false;
 
 // TinyGPS Wrapper
 Gps gps;
@@ -179,13 +182,6 @@ void do_send(osjob_t* j) {
 
 // UI Thread
 void uiThread (void * parameter) {
-  // Initialize Buttons
-  simplebutton::Button* b1 = new simplebutton::ButtonPullup(BUTTON_R);
-  b1->setOnClicked([]() {
-    sendIntervalKey++;
-    if (sendIntervalKey >= (sizeof(sendInterval)/sizeof(*sendInterval)))
-      sendIntervalKey = 0;
-  });
 
   // Initialize Display
 #if defined V1_0 || defined V1_1
@@ -261,6 +257,8 @@ void uiThread (void * parameter) {
 
   // Endless Loop for Display Thread
   bool lastState = hasFix;
+  bool cleared_setscreen = false;
+  bool cleared_normscreen = false;
   for(;;) {
 
 #ifdef V1_1
@@ -283,113 +281,138 @@ void uiThread (void * parameter) {
     vbat = axp.getBattVoltage() / 1000.0;
 #endif
 
-    b1->update();
-    //u8x8.setFont(u8x8_font_amstrad_cpc_extended_r);
-    u8x8.setFont(u8x8_font_victoriabold8_r); // <- this font is better readable IMHO
+    // Settings screen, shown 5secs after last keypress. Reset in main loop
+    if(setlock){
 
-    if (lastState != hasFix) {
-      lastState = hasFix;
-      u8x8.clear();
-    } else {
+      cleared_normscreen = false;
+
+      // avoid flicker
+      if(!cleared_setscreen){
+        u8x8.clear();
+        cleared_setscreen = true;
+      }
       u8x8.home();
-    }
+      u8x8.setFont(u8x8_font_victoriabold8_r);
+      u8x8.println("Interval");
+      u8x8.setFont(u8x8_font_courB18_2x3_n);
+      u8x8.println(sendInterval[sendIntervalKey]);
+      delay(50);
 
-    if (hasFix) {
-#if defined V1_0 || defined V1_1
+    } else {
 
-      if(LoraStatus == "QUEUED"){
-        u8x8.setInverseFont(1);
-        display_is_inverse = true;
-      }else{
-        u8x8.setInverseFont(0);
-        // this is to avoid white spaces on display
-        if(display_is_inverse){
-          u8x8.clear();
-          display_is_inverse = false;
-        }
+      cleared_setscreen = false;
+      if(!cleared_normscreen){
+        u8x8.clear();
+        cleared_normscreen = true;
+      }
+    
+      //u8x8.setFont(u8x8_font_amstrad_cpc_extended_r);
+      u8x8.setFont(u8x8_font_victoriabold8_r); // <- this font is better readable IMHO
+
+      if (lastState != hasFix) {
+        lastState = hasFix;
+        u8x8.clear();
+      } else {
+        u8x8.home();
       }
 
-      u8x8.print("HDOP:  ");
-      u8x8.println(dispBuffer[4] / 10.0);
-      u8x8.print("Sat:   ");
-      u8x8.print(dispBuffer[5]);
-      u8x8.print("/");
-      u8x8.println(dispBuffer[0]);
-      u8x8.print("Int:   ");
-      u8x8.print(sendInterval[sendIntervalKey]);
-      u8x8.print("  ");
-      u8x8.print(packets_send);
-      u8x8.println("x");
-      u8x8.print("Speed: ");
-      u8x8.print(dispBuffer[1]);
-      u8x8.println("km/h");
-      u8x8.print("Alt:   ");
-      u8x8.print(dispBuffer[3]);
-      u8x8.println("m");
-      u8x8.print("Lora:  ");
-      u8x8.println(LoraStatus);
-      u8x8.print("Bat:   ");
-      u8x8.print(vbat, 2);
-      u8x8.println("V");
+      if (hasFix) {
+#if defined V1_0 || defined V1_1
+
+        if(LoraStatus == "QUEUED"){
+          u8x8.setInverseFont(1);
+          display_is_inverse = true;
+        }else{
+          u8x8.setInverseFont(0);
+          // this is to avoid white spaces on display
+          if(display_is_inverse){
+            u8x8.clear();
+            display_is_inverse = false;
+          }
+        }
+
+        u8x8.print("HDOP:  ");
+        u8x8.println(dispBuffer[4] / 10.0);
+        u8x8.print("Sat:   ");
+        u8x8.print(dispBuffer[5]);
+        u8x8.print("/");
+        u8x8.println(dispBuffer[0]);
+        u8x8.print("Int:   ");
+        u8x8.print(sendInterval[sendIntervalKey]);
+        u8x8.print("  ");
+        u8x8.print(packets_send);
+        u8x8.println("x");
+        u8x8.print("Speed: ");
+        u8x8.print(dispBuffer[1]);
+        u8x8.println("km/h");
+        u8x8.print("Alt:   ");
+        u8x8.print(dispBuffer[3]);
+        u8x8.println("m");
+        u8x8.print("Lora:  ");
+        u8x8.println(LoraStatus);
+        u8x8.print("Bat:   ");
+        u8x8.print(vbat, 2);
+        u8x8.println("V");
   #ifdef V1_1
-      // Charge status
-      u8x8.println(baChStatus);
+        // Charge status
+        u8x8.println(baChStatus);
   #endif
 #endif
 
 #ifdef HELTEC_WS
-      u8x8.setInverseFont(0);
-      u8x8.print("H: ");
-      u8x8.println(dispBuffer[4] / 10.0);
-      u8x8.print("S: ");
-      u8x8.print(dispBuffer[5]);
-      u8x8.print("/");
-      u8x8.println(dispBuffer[0]);
-      u8x8.print("X: ");
-      u8x8.println(packets_send);
-      u8x8.println(LoraStatus);
+        u8x8.setInverseFont(0);
+        u8x8.print("H: ");
+        u8x8.println(dispBuffer[4] / 10.0);
+        u8x8.print("S: ");
+        u8x8.print(dispBuffer[5]);
+        u8x8.print("/");
+        u8x8.println(dispBuffer[0]);
+        u8x8.print("X: ");
+        u8x8.println(packets_send);
+        u8x8.println(LoraStatus);
 #endif
 
-    } else {
+      } else {
 
 #if defined V1_0 || defined V1_1
-      u8x8.setInverseFont(0);
-      u8x8.println("NO FIX");
-      u8x8.print("Sat:   ");
-      u8x8.print(dispBuffer[5]);
-      u8x8.print("/");
-      u8x8.println(dispBuffer[0]);
-      u8x8.print("Int:   ");
-      u8x8.print(sendInterval[sendIntervalKey]);
-      u8x8.print("  ");
-      u8x8.print(packets_send);
-      u8x8.println("x");
-      u8x8.println("");
-      u8x8.println("");
-      u8x8.println("");
-      u8x8.print("Bat:   ");
-      u8x8.print(vbat, 2);
-      u8x8.println("V");
+        u8x8.setInverseFont(0);
+        u8x8.println("NO FIX");
+        u8x8.print("Sat:   ");
+        u8x8.print(dispBuffer[5]);
+        u8x8.print("/");
+        u8x8.println(dispBuffer[0]);
+        u8x8.print("Int:   ");
+        u8x8.print(sendInterval[sendIntervalKey]);
+        u8x8.print("  ");
+        u8x8.print(packets_send);
+        u8x8.println("x");
+        u8x8.println("");
+        u8x8.println("");
+        u8x8.println("");
+        u8x8.print("Bat:   ");
+        u8x8.print(vbat, 2);
+        u8x8.println("V");
   #ifdef V1_1
-      // Charge status
-      u8x8.println(baChStatus);
+        // Charge status
+        u8x8.println(baChStatus);
   #endif
 #endif
 
 #ifdef HELTEC_WS
-      u8x8.setInverseFont(0);
-      u8x8.println("NO FIX");
-      u8x8.print("S: ");
-      u8x8.print(dispBuffer[5]);
-      u8x8.print("/");
-      u8x8.println(dispBuffer[0]);
-      u8x8.print("X: ");
-      u8x8.println(packets_send);
-      u8x8.println(LoraStatus);
+        u8x8.setInverseFont(0);
+        u8x8.println("NO FIX");
+        u8x8.print("S: ");
+        u8x8.print(dispBuffer[5]);
+        u8x8.print("/");
+        u8x8.println(dispBuffer[0]);
+        u8x8.print("X: ");
+        u8x8.println(packets_send);
+        u8x8.println(LoraStatus);
 #endif
 
+      }
+      delay(50);
     }
-    delay(50);
   }
 }
 
@@ -424,6 +447,16 @@ void init_LMIC(){
   do_send(&sendjob);
 }
 
+// interrupt handler for buttonpress
+void IRAM_ATTR isr() {
+  setlock = true;
+  lastkeypress = millis();
+  sendIntervalKey++;
+  if (sendIntervalKey >= (sizeof(sendInterval)/sizeof(*sendInterval))){
+    sendIntervalKey = 0;
+  }
+}
+
 void setup() {
 
   Serial.begin(115200);
@@ -451,6 +484,11 @@ void setup() {
   init_LMIC();
 
   digitalWrite(BUILTIN_LED, LOW);
+
+  // use an interrupt for buttonpress
+  pinMode(BUTTON_R, INPUT_PULLUP);
+  attachInterrupt(BUTTON_R, isr, FALLING);
+
 }
 
 void loop() {
@@ -465,6 +503,12 @@ void loop() {
     init_LMIC();
     packets_send = 0;
     LoraStatus = "LMIC_RST";
+  }
+
+  // check settings lock for display
+  if(lastkeypress > 0 && (millis() - lastkeypress > 5000)){
+      setlock = false;
+      lastkeypress = 0;
   }
 
   hasFix = gps.checkGpsFix();
