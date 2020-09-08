@@ -214,29 +214,35 @@ void uiThread (void * parameter) {
   //     Serial.println("AXP192 Begin FAIL");
   // }
 
-  // Serial.printf("DCDC1: %s\n", axp.isDCDC1Enable() ? "ENABLE" : "DISABLE");
-  // Serial.printf("DCDC2: %s\n", axp.isDCDC2Enable() ? "ENABLE" : "DISABLE");
+  // Lora Power ON 
   // Serial.printf("LDO2: %s\n", axp.isLDO2Enable() ? "ENABLE" : "DISABLE");
+  axp.setPowerOutPut(AXP192_LDO2, AXP202_ON);
+  axp.setLDO2Voltage(3300);   //LORA VDD set 3v3
+  // Serial.printf("LDO2: %s\n", axp.isLDO2Enable() ? "ENABLE" : "DISABLE");
+
+  // GPS Power ON
   // Serial.printf("LDO3: %s\n", axp.isLDO3Enable() ? "ENABLE" : "DISABLE");
-  // Serial.printf("DCDC3: %s\n", axp.isDCDC3Enable() ? "ENABLE" : "DISABLE");
-  // Serial.printf("Exten: %s\n", axp.isExtenEnable() ? "ENABLE" : "DISABLE");
+  axp.setPowerOutPut(AXP192_LDO3, AXP202_ON);
+  axp.setLDO3Voltage(3300);   //GPS VDD      3v3
+  // Serial.printf("LDO3: %s\n", axp.isLDO3Enable() ? "ENABLE" : "DISABLE");
 
-  // Serial.println("----------------------------------------");
+  // OLED Power ON
+  // Serial.printf("DCDC1: %s\n", axp.isDCDC1Enable() ? "ENABLE" : "DISABLE");
+  axp.setPowerOutPut(AXP192_DCDC1, AXP202_ON);
+  axp.setDCDC1Voltage(3300);  //esp32 core VDD    3v3
+  // Serial.printf("DCDC1: %s\n", axp.isDCDC1Enable() ? "ENABLE" : "DISABLE");
 
-  // axp.setPowerOutPut(AXP192_LDO2, AXP202_ON);
-  // axp.setPowerOutPut(AXP192_LDO3, AXP202_ON);
+  // ??? Power ON
+  // Serial.printf("DCDC2: %s\n", axp.isDCDC2Enable() ? "ENABLE" : "DISABLE");
   // axp.setPowerOutPut(AXP192_DCDC2, AXP202_ON);
-  // axp.setPowerOutPut(AXP192_EXTEN, AXP202_ON);
-  // axp.setPowerOutPut(AXP192_DCDC1, AXP202_ON);
-  // axp.setDCDC1Voltage(3300);  //esp32 core VDD    3v3
-  // axp.setLDO2Voltage(3300);   //LORA VDD set 3v3
-  // axp.setLDO3Voltage(3300);   //GPS VDD      3v3
-
-  // Serial.printf("DCDC1: %s\n", axp.isDCDC1Enable() ? "ENABLE" : "DISABLE");
   // Serial.printf("DCDC2: %s\n", axp.isDCDC2Enable() ? "ENABLE" : "DISABLE");
-  // Serial.printf("LDO2: %s\n", axp.isLDO2Enable() ? "ENABLE" : "DISABLE");
-  // Serial.printf("LDO3: %s\n", axp.isLDO3Enable() ? "ENABLE" : "DISABLE");
+
   // Serial.printf("DCDC3: %s\n", axp.isDCDC3Enable() ? "ENABLE" : "DISABLE");
+  // Serial.printf("DCDC3: %s\n", axp.isDCDC3Enable() ? "ENABLE" : "DISABLE");
+
+  // Exten Power ON
+  // Serial.printf("Exten: %s\n", axp.isExtenEnable() ? "ENABLE" : "DISABLE");
+  // axp.setPowerOutPut(AXP192_EXTEN, AXP202_ON);
   // Serial.printf("Exten: %s\n", axp.isExtenEnable() ? "ENABLE" : "DISABLE");
 
   // setting the interrupt to handle state changes on AXP
@@ -245,6 +251,7 @@ void uiThread (void * parameter) {
     pmu_irq = true;
   }, FALLING);
 
+  // enable ADC Measuring
   axp.adc1Enable(AXP202_BATT_CUR_ADC1, 1);
   axp.enableIRQ(AXP202_VBUS_REMOVED_IRQ | AXP202_VBUS_CONNECT_IRQ | AXP202_BATT_REMOVED_IRQ | AXP202_BATT_CONNECT_IRQ, 1);
   axp.clearIRQ();
@@ -289,6 +296,7 @@ void uiThread (void * parameter) {
       // avoid flicker
       if(!cleared_setscreen){
         u8x8.clear();
+        u8x8.setInverseFont(0);
         cleared_setscreen = true;
       }
       u8x8.home();
@@ -486,7 +494,7 @@ void setup() {
   digitalWrite(BUILTIN_LED, LOW);
 
   // use an interrupt for buttonpress
-  pinMode(BUTTON_R, INPUT_PULLUP);
+  pinMode(BUTTON_R, INPUT);
   attachInterrupt(BUTTON_R, isr, FALLING);
 
 }
