@@ -26,7 +26,7 @@ void Gps::encode()
     }
 }
 
-void Gps::buildPacket(uint8_t txBuffer[9])
+bool Gps::buildPacket(uint8_t txBuffer[9])
 {
   LatitudeBinary = ((tGps.location.lat() + 90) / 180.0) * 16777215;
   LongitudeBinary = ((tGps.location.lng() + 180) / 360.0) * 16777215;
@@ -45,6 +45,8 @@ void Gps::buildPacket(uint8_t txBuffer[9])
 
   hdopGps = tGps.hdop.value()/10;
   txBuffer[8] = hdopGps & 0xFF;
+
+  return true;
 }
 
 void Gps::gdisplay(uint16_t txBuffer2[6])
